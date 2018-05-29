@@ -14,4 +14,9 @@ public class RandomSampleService {
         //this will pull from a PPS distribution once I get it set up
         return 3;
     }
+
+    public static int getRandomScaleToYardTravelTime() {
+        //this will pull from a PPS distribution once I get it set up
+        return 2;
+    }
 }

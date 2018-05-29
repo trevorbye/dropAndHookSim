@@ -5,8 +5,7 @@ public class RunResultEntity {
 
     //driver summary stats
     private long totalDriverPropertyTimeHours;
-    private double averageDriverPropertyTimePerDayMin;
-    private int countDaysWithDriverWaitTime;
+    private double averageDriverPropertyTimeMin;
 
     //hostler summary stats
     private long totalHostlerIdleTimeHours;
@@ -17,18 +16,19 @@ public class RunResultEntity {
     private double averageBayDowntimeMinPerDay;
 
     //iteratively add to these lists during the sim, then run calculations at end to set summary stat variables
-    private List<Integer> totalDriverWaitMinPerDay = new ArrayList<>();
+    private List<Double> listOfDriverMinOnProperty = new ArrayList<>();
+
+    public List<Double> getListOfDriverMinOnProperty() {
+        return listOfDriverMinOnProperty;
+    }
+
+    public void setListOfDriverMinOnProperty(List<Double> listOfDriverMinOnProperty) {
+        this.listOfDriverMinOnProperty = listOfDriverMinOnProperty;
+    }
 
     public RunResultEntity() {
     }
 
-    public List<Integer> getTotalDriverWaitMinPerDay() {
-        return totalDriverWaitMinPerDay;
-    }
-
-    public void setTotalDriverWaitMinPerDay(List<Integer> totalDriverWaitMinPerDay) {
-        this.totalDriverWaitMinPerDay = totalDriverWaitMinPerDay;
-    }
 
     //other methods to calculate summary stats
 }

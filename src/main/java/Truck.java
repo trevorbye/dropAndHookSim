@@ -8,11 +8,26 @@ public class Truck {
     private boolean isPilotedByHostler;
     private boolean isEmpty;
 
+    //used during baseline runs, because the driver passes through the scale twice, and on the second time he exits the property
+    private boolean hasPassedInitialScale;
+
     public Truck(boolean isEmpty) {
         this.isEmpty = isEmpty;
     }
 
     public Truck() {
+    }
+
+    public boolean isEmpty() {
+        return isEmpty;
+    }
+
+    public boolean isHasPassedInitialScale() {
+        return hasPassedInitialScale;
+    }
+
+    public void setHasPassedInitialScale(boolean hasPassedInitialScale) {
+        this.hasPassedInitialScale = hasPassedInitialScale;
     }
 
     public Date getPropertyEntranceTime() {
