@@ -32,7 +32,12 @@ public class SimController {
             yardBin.add(emptyTruck);
         }
 
-        List<Truck> bayBin = new ArrayList<>();
+        //create bay container and fill with BayPlaceHolderEntity objects with null trucks
+        List<BayPlaceholderEntity> bayBin = new ArrayList<>();
+        for (int spot = 1; spot <=5; spot++) {
+            BayPlaceholderEntity entity = new BayPlaceholderEntity(spot);
+            bayBin.add(entity);
+        }
 
         /*
         *  queue setup
@@ -44,6 +49,7 @@ public class SimController {
         truck.setQueueDurationMin(9);
         truck.setPilotedByDriver(true);
         truck.setHasPassedInitialScale(false);
+        truckArrivalQueue.add(truck);
 
         //queue for waiting for the scale. Necessary because trucks coming from farms and bay out can both compete for the scale resource
         //NOT INCLUDED IN DISCRETE EVENT TIME STEP CHECK, just a FIFO queue
@@ -84,10 +90,10 @@ public class SimController {
         //all these queues/lists are entered as params to the runSimulation()
         runSimulation(hostlerToYardWalkTimeMin, yardToHostlerWalkTimeMin, yardBin, bayBin, truckArrivalQueue, scaleWaitQueue, scaleProcessQueue, scaleToYardTravelQueue, driverWaitForYardCapQueue,
                 hostlerWaitForYardCapQueue,driverWaitForEmptyTruckQueue,fullTruckDropQueue,emptyTruckDropQueue, yardToBayTravelQueue, bayToScaleTravelQueue,maxHostlers, hostlerBin,maxYardCapacity,
-                simDateTime,isBaselineRun, BASELINE_scaleToBayTravelQueue, BASELINE_waitForOpenBayQueue, bay5UtilizationPercent);
+                simDateTime, isBaselineRun, BASELINE_scaleToBayTravelQueue, BASELINE_waitForOpenBayQueue, bay5UtilizationPercent);
     }
 
-    public static RunResultEntity runSimulation(List<Integer> hostlerToYardWalkTimeMin, List<Integer> yardToHostlerWalkTimeMin, List<Truck> yardBin, List<Truck> bayBin
+    public static RunResultEntity runSimulation(List<Integer> hostlerToYardWalkTimeMin, List<Integer> yardToHostlerWalkTimeMin, List<Truck> yardBin, List<BayPlaceholderEntity> bayBin
     ,Queue<Truck> truckArrivalQueue, Queue<Truck> scaleWaitQueue, Queue<Truck> scaleProcessQueue, Queue<Truck> scaleToYardTravelQueue, Queue<Truck> driverWaitForYardCapQueue
     , Queue<Truck> hostlerWaitForYardCapQueue, Queue<Truck> driverWaitForEmptyTruckQueue, Queue<Truck> fullTruckDropQueue, Queue<Truck> emptyTruckDropQueue, Queue<Truck> yardToBayTravelQueue, Queue<Truck> bayToScaleTravelQueue
     , int maxHostlers, int hostlerBin, int maxYardCapacity, Date simDateTime, boolean isBaselineRun, Queue<Truck> BASELINE_scaleToBayTravelQueue, Queue<Truck> BASELINE_waitForOpenBayQueue, double bayFiveUtilizationPercent) {
@@ -116,11 +122,30 @@ public class SimController {
         //define end of sim
         Date simEndDateTime = new Date("01/01/2019 00:00:00");
 
+        //define downtime hours list for bay #5 for BASELINE runs. This gets re-randomized for each new day in the sim
+        List<Integer> bay5Downtimes = randomizeBay5Downtime(bayFiveUtilizationPercent);
+
         //main sim loop
         while (simDateTime.before(simEndDateTime)) {
+            Date priorDate = simDateTime;
+
             //step all events, step sim clock by same amount
             int stepValMin = evaluateEventTimeSteps(listOfEventQueues, bayBin, hostlerToYardWalkTimeMin, yardToHostlerWalkTimeMin);
             simDateTime = DateUtils.addMinutes(simDateTime, stepValMin);
+
+            //compare priorDate and newly stepped simDateTime and re-randomize bay 5 downtimes if necessary
+            Calendar t1 = Calendar.getInstance();
+            t1.setTime(priorDate);
+            int t1DayOfWeek = t1.get(Calendar.DAY_OF_WEEK);
+
+            Calendar t2 = Calendar.getInstance();
+            t2.setTime(simDateTime);
+            int t2DayOfWeek = t2.get(Calendar.DAY_OF_WEEK);
+
+            if (t1DayOfWeek != t2DayOfWeek) {
+                bay5Downtimes.clear();
+                bay5Downtimes = randomizeBay5Downtime(bayFiveUtilizationPercent);
+            }
 
             /**
              * process all queues
@@ -145,9 +170,11 @@ public class SimController {
             //if scaleProcessQueue is empty, or if current resource has a queueDuration=0, push next truck from scaleWaitQueue
             if (scaleProcessQueue.size() == 0 || scaleProcessQueue.peek().getQueueDurationMin() == 0) {
                 //remove truck from scaleWaitQueue, randomize scale process duration, and add to queue
-                Truck truckLeavingScaleWaitQueue = scaleWaitQueue.remove();
-                truckLeavingScaleWaitQueue.setQueueDurationMin(RandomSampleService.getRandomScaleProcessSample());
-                scaleProcessQueue.add(truckLeavingScaleWaitQueue);
+                if (scaleWaitQueue.peek() != null) {
+                    Truck truckLeavingScaleWaitQueue = scaleWaitQueue.remove();
+                    truckLeavingScaleWaitQueue.setQueueDurationMin(RandomSampleService.getRandomScaleProcessSample());
+                    scaleProcessQueue.add(truckLeavingScaleWaitQueue);
+                }
             }
 
             //check for Truck that is finished on the scale. if BASELINE_, push to BASELINE_scaleToBayTravelQueue
@@ -210,7 +237,7 @@ public class SimController {
                     boolean keepScanning = true;
 
                     while (keepScanning) {
-                        if (BASELINE_scaleToBayTravelQueue.peek().getQueueDurationMin() == 0) {
+                        if (BASELINE_scaleToBayTravelQueue.peek() != null && BASELINE_scaleToBayTravelQueue.peek().getQueueDurationMin() == 0) {
                             Truck truckWaitingForBay = BASELINE_scaleToBayTravelQueue.remove();
                             BASELINE_waitForOpenBayQueue.add(truckWaitingForBay);
                         } else {
@@ -220,10 +247,106 @@ public class SimController {
                 }
             }
 
+            //if BASELINE_, attempt to push trucks from BASELINE_waitForOpenBayQueue to bayBin
+            if (isBaselineRun) {
 
+                //first, for each bay, if current truck's duration is 0, move to truckReadyToExit slot
+                for (BayPlaceholderEntity entity : bayBin) {
+                    if (entity.getTruck() != null && entity.getTruck().getQueueDurationMin() == 0) {
+                        entity.setTruckReadyToExitBay(entity.getTruck());
+                        entity.setTruck(null);
+                    }
+                }
 
+                //check bay 5 availability
+                boolean bay5Available = false;
+
+                //check bay 5 availability (index 4 in list) and then check against randomized downtime blocks
+                if (bayBin.get(4).getTruck() == null) {
+                    //check if current sim time is during a bay 5 randomized downtime interval
+                    Calendar curr = Calendar.getInstance();
+                    curr.setTime(simDateTime);
+                    int currentHour = curr.get(Calendar.HOUR_OF_DAY);
+
+                    boolean eligibleBay5Hour = true;
+                    for (int downtimeHour : bay5Downtimes) {
+                        if (downtimeHour == currentHour) {
+                            eligibleBay5Hour = false;
+                            break;
+                        }
+                    }
+
+                    if (eligibleBay5Hour) {
+                        bay5Available = true;
+                    }
+                }
+
+                //push all trucks into bay if there is an available spot. Randomize bay duration if truck is pushed in
+
+                //push truck to bay 5 if available
+                if (bay5Available) {
+                    if (BASELINE_waitForOpenBayQueue.size() > 0) {
+                        Truck truckMovingToBay = BASELINE_waitForOpenBayQueue.remove();
+                        truckMovingToBay.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime());
+
+                        bayBin.get(4).setTruck(truckMovingToBay);
+
+                    }
+                }
+
+                //check other bays' availability and push trucks
+                for (BayPlaceholderEntity entity : bayBin) {
+
+                    if (entity.getBayNumber() != 5) {
+                        if (entity.getTruck() == null) {
+                            if (BASELINE_waitForOpenBayQueue.peek() != null) {
+                                Truck truckToMove = BASELINE_waitForOpenBayQueue.remove();
+                                truckToMove.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime());
+                                entity.setTruck(truckToMove);
+                            }
+                        }
+                    }
+                }
+            }
+
+            //if BASELINE run, check all trucks ready to exit each bay, and move to bayToScaleTravelQueue
+            if (isBaselineRun) {
+                for (BayPlaceholderEntity entity : bayBin) {
+                    if (entity.getTruckReadyToExitBay() != null) {
+                        Truck truckGoingToScale = entity.getTruckReadyToExitBay();
+                        entity.setTruckReadyToExitBay(null);
+
+                        truckGoingToScale.setQueueDurationMin(RandomSampleService.getRandomBayToScaleTime());
+                        if (bayToScaleTravelQueue.size() > 0) {
+                            int firstTravelTime = bayToScaleTravelQueue.peek().getQueueDurationMin();
+                            if (truckGoingToScale.getQueueDurationMin() < firstTravelTime) {
+                                truckGoingToScale.setQueueDurationMin(firstTravelTime);
+                            }
+                        }
+
+                        bayToScaleTravelQueue.add(truckGoingToScale);
+                    }
+                }
+            }
+
+            //check all trucks in bayToScaleTravelQueue, add to scaleWaitQueue
+            if (bayToScaleTravelQueue.size() > 0) {
+                boolean continueScanning = true;
+
+                while (continueScanning) {
+                    if (bayToScaleTravelQueue.peek() != null && bayToScaleTravelQueue.peek().getQueueDurationMin() == 0) {
+                        Truck truckToMoveToScleWaitQueue = bayToScaleTravelQueue.remove();
+                        scaleWaitQueue.add(truckToMoveToScleWaitQueue);
+                    } else {
+                        continueScanning = false;
+                    }
+                }
+            }
 
         }
+
+        List<Double> driverMin = runResultEntity.getListOfDriverMinOnProperty();
+        System.out.println(driverMin);
 
         return runResultEntity;
     }
@@ -234,13 +357,15 @@ public class SimController {
      * @param bayBin
      * @return **returns the the number of minutes to step sim clock by
      */
-    public static int evaluateEventTimeSteps(List<Queue<Truck>> listOfEventQueues, List<Truck> bayBin, List<Integer> hostlerToYardWalkTimeMin, List<Integer> yardToHostlerWalkTimeMin) {
+    public static int evaluateEventTimeSteps(List<Queue<Truck>> listOfEventQueues, List<BayPlaceholderEntity> bayBin, List<Integer> hostlerToYardWalkTimeMin, List<Integer> yardToHostlerWalkTimeMin) {
         int minTimeValueDeduction = 0;
         List<Integer> listOfTimeVals = new ArrayList<>();
 
         //add all time values from all param queues
-        for (Truck truck : bayBin) {
-            listOfTimeVals.add(truck.getQueueDurationMin());
+        for (BayPlaceholderEntity bayPlaceholder : bayBin) {
+            if (bayPlaceholder.getTruck() != null) {
+                listOfTimeVals.add(bayPlaceholder.getTruck().getQueueDurationMin());
+            }
         }
 
         for (Queue<Truck> queue : listOfEventQueues) {
@@ -258,9 +383,11 @@ public class SimController {
         minTimeValueDeduction = listOfTimeVals.get(0);
 
         //subtract min val from each time value in each directory
-        for (Truck truck : bayBin) {
-            int currentDuration = truck.getQueueDurationMin();
-            truck.setQueueDurationMin(currentDuration - minTimeValueDeduction);
+        for (BayPlaceholderEntity bayPlaceholder : bayBin) {
+            if (bayPlaceholder.getTruck() != null) {
+                int currentDuration = bayPlaceholder.getTruck().getQueueDurationMin();
+                bayPlaceholder.getTruck().setQueueDurationMin(currentDuration - minTimeValueDeduction);
+            }
         }
 
         for (Queue<Truck> queue : listOfEventQueues) {
@@ -281,31 +408,22 @@ public class SimController {
         return minTimeValueDeduction;
     }
 
+    /**
+     *
+     * @param utilizationPercent **uptime utilization % for bay #5
+     * @return ** returns list of int, which are hours that bay #5 cannot accept a truck
+     */
+    public static List<Integer> randomizeBay5Downtime(double utilizationPercent) {
+        double percentOfDayAsHours = (1 - utilizationPercent) * 24;
+        int totalDowntimeHoursRounded = (int) Math.round(percentOfDayAsHours);
+
+        List<Integer> downtimeHoursList = new ArrayList<>();
+        for (int x = 1; x <= totalDowntimeHoursRounded; x++) {
+            Random random = new Random();
+            int randomDowntime = random.nextInt(24);
+            downtimeHoursList.add(randomDowntime);
+        }
+
+        return downtimeHoursList;
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -19,4 +19,14 @@ public class RandomSampleService {
         //this will pull from a PPS distribution once I get it set up
         return 2;
     }
+
+    public static int getRandomBayUnloadTime() {
+        //this will pull from a PPS distribution once I get it set up
+        return 40;
+    }
+
+    public static int getRandomBayToScaleTime() {
+        //this will pull from a PPS distribution once I get it set up
+        return 3;
+    }
 }
