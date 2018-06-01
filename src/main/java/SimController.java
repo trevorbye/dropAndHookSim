@@ -120,10 +120,14 @@ public class SimController {
         //build run results object to return at end of sim run
         RunResultEntity runResultEntity = new RunResultEntity();
         //define end of sim
-        Date simEndDateTime = new Date("01/01/2019 00:00:00");
+        Date simEndDateTime = new Date("01/30/2018 00:00:00");
 
         //define downtime hours list for bay #5 for BASELINE runs. This gets re-randomized for each new day in the sim
         List<Integer> bay5Downtimes = randomizeBay5Downtime(bayFiveUtilizationPercent);
+
+        //initialize sample service object to avoid calling bloated constructor more than once
+        RandomSampleService sampleService = new RandomSampleService();
+        sampleService.init();
 
         //main sim loop
         while (simDateTime.before(simEndDateTime)) {
@@ -141,6 +145,7 @@ public class SimController {
             Calendar t2 = Calendar.getInstance();
             t2.setTime(simDateTime);
             int t2DayOfWeek = t2.get(Calendar.DAY_OF_WEEK);
+            int currentSimHour = t2.get(Calendar.HOUR_OF_DAY);
 
             if (t1DayOfWeek != t2DayOfWeek) {
                 bay5Downtimes.clear();
@@ -162,7 +167,7 @@ public class SimController {
                 //add new random truck to arrival queue
                 Truck truck = new Truck(false);
                 truck.setPilotedByDriver(true);
-                truck.setQueueDurationMin(RandomSampleService.getRandomArrivalSample());
+                truck.setQueueDurationMin(sampleService.getRandomArrivalSample(currentSimHour));
                 truck.setHasPassedInitialScale(false);
                 truckArrivalQueue.add(truck);
             }
@@ -310,6 +315,10 @@ public class SimController {
             }
 
             //if BASELINE run, check all trucks ready to exit each bay, and move to bayToScaleTravelQueue
+            if (bayToScaleTravelQueue.size() > 3) {
+                String breakpoint = "";
+            }
+
             if (isBaselineRun) {
                 for (BayPlaceholderEntity entity : bayBin) {
                     if (entity.getTruckReadyToExitBay() != null) {
@@ -318,9 +327,8 @@ public class SimController {
 
                         truckGoingToScale.setQueueDurationMin(RandomSampleService.getRandomBayToScaleTime());
                         if (bayToScaleTravelQueue.size() > 0) {
-                            int firstTravelTime = bayToScaleTravelQueue.peek().getQueueDurationMin();
-                            if (truckGoingToScale.getQueueDurationMin() < firstTravelTime) {
-                                truckGoingToScale.setQueueDurationMin(firstTravelTime);
+                            if (truckGoingToScale.getQueueDurationMin() < bayToScaleTravelQueue.peek().getQueueDurationMin()) {
+                                truckGoingToScale.setQueueDurationMin(bayToScaleTravelQueue.peek().getQueueDurationMin());
                             }
                         }
 
@@ -346,7 +354,20 @@ public class SimController {
         }
 
         List<Double> driverMin = runResultEntity.getListOfDriverMinOnProperty();
+
+
+        double averageTime;
+        long runningSum = 0;
+        for (double datapoint : driverMin) {
+            runningSum = runningSum + ((long) datapoint);
+        }
+
+        averageTime = runningSum / driverMin.size();
+
+        System.out.print("Average on-property time: " + averageTime + "  ::::: ");
+
         System.out.println(driverMin);
+
 
         return runResultEntity;
     }
