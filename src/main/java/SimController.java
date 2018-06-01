@@ -10,7 +10,7 @@ public class SimController {
      * @param hostlerCount **Number of Hostler employees to introduce into the simulation
      * @param isBaselineRun **Switch to allow you to run a baseline sim vs. future state sim
      */
-    public static void simSetup(int assetCount, int hostlerCount, boolean isBaselineRun, double bay5UtilizationPercent) {
+    public static RunResultEntity simSetup(int assetCount, int hostlerCount, boolean isBaselineRun, double bay5UtilizationPercent) {
 
         //initialize sim clock
         Date simDateTime = new Date("01/01/2018 00:00:00");
@@ -88,7 +88,7 @@ public class SimController {
         Queue<Truck> bayToScaleTravelQueue = new LinkedList<>();
 
         //all these queues/lists are entered as params to the runSimulation()
-        runSimulation(hostlerToYardWalkTimeMin, yardToHostlerWalkTimeMin, yardBin, bayBin, truckArrivalQueue, scaleWaitQueue, scaleProcessQueue, scaleToYardTravelQueue, driverWaitForYardCapQueue,
+        return runSimulation(hostlerToYardWalkTimeMin, yardToHostlerWalkTimeMin, yardBin, bayBin, truckArrivalQueue, scaleWaitQueue, scaleProcessQueue, scaleToYardTravelQueue, driverWaitForYardCapQueue,
                 hostlerWaitForYardCapQueue,driverWaitForEmptyTruckQueue,fullTruckDropQueue,emptyTruckDropQueue, yardToBayTravelQueue, bayToScaleTravelQueue,maxHostlers, hostlerBin,maxYardCapacity,
                 simDateTime, isBaselineRun, BASELINE_scaleToBayTravelQueue, BASELINE_waitForOpenBayQueue, bay5UtilizationPercent);
     }
@@ -314,11 +314,6 @@ public class SimController {
                 }
             }
 
-            //if BASELINE run, check all trucks ready to exit each bay, and move to bayToScaleTravelQueue
-            if (bayToScaleTravelQueue.size() > 3) {
-                String breakpoint = "";
-            }
-
             if (isBaselineRun) {
                 for (BayPlaceholderEntity entity : bayBin) {
                     if (entity.getTruckReadyToExitBay() != null) {
@@ -353,8 +348,8 @@ public class SimController {
 
         }
 
+        /*
         List<Double> driverMin = runResultEntity.getListOfDriverMinOnProperty();
-
 
         double averageTime;
         long runningSum = 0;
@@ -367,6 +362,7 @@ public class SimController {
         System.out.print("Average on-property time: " + averageTime + "  ::::: ");
 
         System.out.println(driverMin);
+        */
 
 
         return runResultEntity;
