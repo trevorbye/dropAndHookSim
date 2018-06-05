@@ -18,6 +18,26 @@ public class RunResultEntity {
     //iteratively add to these lists during the sim, then run calculations at end to set summary stat variables
     private List<Double> listOfDriverMinOnProperty = new ArrayList<>();
 
+    private List<Double> listOfScaleInToBayOutMin = new ArrayList<>();
+
+    private List<Double> listOfBayInToBayOutMin = new ArrayList<>();
+
+    public List<Double> getListOfBayInToBayOutMin() {
+        return listOfBayInToBayOutMin;
+    }
+
+    public void setListOfBayInToBayOutMin(List<Double> listOfBayInToBayOutMin) {
+        this.listOfBayInToBayOutMin = listOfBayInToBayOutMin;
+    }
+
+    public List<Double> getListOfScaleInToBayOutMin() {
+        return listOfScaleInToBayOutMin;
+    }
+
+    public void setListOfScaleInToBayOutMin(List<Double> listOfScaleInToBayOutMin) {
+        this.listOfScaleInToBayOutMin = listOfScaleInToBayOutMin;
+    }
+
     public List<Double> getListOfDriverMinOnProperty() {
         return listOfDriverMinOnProperty;
     }

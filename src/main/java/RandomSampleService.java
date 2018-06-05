@@ -97,7 +97,7 @@ public class RandomSampleService {
             returnVal = 1;
         }
 
-        return 2;
+        return 1;
     }
 
     public static int getRandomScaleToYardTravelTime() {
@@ -108,24 +108,20 @@ public class RandomSampleService {
     public static int getRandomBayUnloadTime() {
         double washProbability = Math.random();
 
-        if (washProbability <= 0.11882) {
+        if (washProbability <= 0.11) {
 
-            double washMean = 92.623;
-            double washStdDev = 28.391;
+            double washMean = 62;
+            double washStdDev = 10;
             double rand = Math.random();
 
             NormalDistribution distribution = new NormalDistribution(washMean, washStdDev);
             double xVal = distribution.inverseCumulativeProbability(rand);
 
-            if (xVal < 65) {
-                xVal = 65;
-            }
-
             return (int) Math.round(xVal);
         } else {
 
-            double nonWashMean = 31.72015;
-            double nonWashStdDev = 7.76177;
+            double nonWashMean = 30;
+            double nonWashStdDev = 8;
             double rand = Math.random();
 
             NormalDistribution distribution = new NormalDistribution(nonWashMean, nonWashStdDev);
@@ -153,7 +149,7 @@ public class RandomSampleService {
             returnVal = 1;
         }
 
-        return 2;
+        return 1;
     }
 
     public List<Integer> getZeroToSevenSampler() {

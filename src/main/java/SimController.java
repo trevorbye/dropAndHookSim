@@ -137,6 +137,10 @@ public class SimController {
             int stepValMin = evaluateEventTimeSteps(listOfEventQueues, bayBin, hostlerToYardWalkTimeMin, yardToHostlerWalkTimeMin);
             simDateTime = DateUtils.addMinutes(simDateTime, stepValMin);
 
+            if (simDateTime.after(new Date("01/02/2018 17:00:00"))) {
+                String breakpointCheck = "";
+            }
+
             //compare priorDate and newly stepped simDateTime and re-randomize bay 5 downtimes if necessary
             Calendar t1 = Calendar.getInstance();
             t1.setTime(priorDate);
@@ -177,6 +181,7 @@ public class SimController {
                 //remove truck from scaleWaitQueue, randomize scale process duration, and add to queue
                 if (scaleWaitQueue.peek() != null) {
                     Truck truckLeavingScaleWaitQueue = scaleWaitQueue.remove();
+
                     truckLeavingScaleWaitQueue.setQueueDurationMin(RandomSampleService.getRandomScaleProcessSample());
                     scaleProcessQueue.add(truckLeavingScaleWaitQueue);
                 }
@@ -208,8 +213,10 @@ public class SimController {
                             //cannot have a queueDuration less than that truck. If that condition exists, set second truck queue duration equal to first
                             //this will replicate reality; if two trucks are traveling to the bay at the same time, the second one wouldn't pass the first one
                             if (BASELINE_scaleToBayTravelQueue.size() > 0) {
-                                if (truckToMoveToBay.getQueueDurationMin() < BASELINE_scaleToBayTravelQueue.peek().getQueueDurationMin()) {
-                                    truckToMoveToBay.setQueueDurationMin(BASELINE_scaleToBayTravelQueue.peek().getQueueDurationMin());
+                                int tempDuration = BASELINE_scaleToBayTravelQueue.peek().getQueueDurationMin();
+
+                                if (truckToMoveToBay.getQueueDurationMin() < tempDuration) {
+                                    truckToMoveToBay.setQueueDurationMin(tempDuration);
                                 }
                             }
 
@@ -225,8 +232,10 @@ public class SimController {
                         truckToMoveToYard.setQueueDurationMin(RandomSampleService.getRandomScaleToYardTravelTime());
 
                         if (scaleToYardTravelQueue.size() > 0) {
-                            if (truckToMoveToYard.getQueueDurationMin() < scaleToYardTravelQueue.peek().getQueueDurationMin()) {
-                                truckToMoveToYard.setQueueDurationMin(scaleToYardTravelQueue.peek().getQueueDurationMin());
+                            int tempDuration = scaleToYardTravelQueue.peek().getQueueDurationMin();
+
+                            if (truckToMoveToYard.getQueueDurationMin() < tempDuration) {
+                                truckToMoveToYard.setQueueDurationMin(tempDuration);
                             }
                         }
 
@@ -292,8 +301,9 @@ public class SimController {
                 if (bay5Available) {
                     if (BASELINE_waitForOpenBayQueue.size() > 0) {
                         Truck truckMovingToBay = BASELINE_waitForOpenBayQueue.remove();
-                        truckMovingToBay.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime());
 
+                        truckMovingToBay.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime());
+                        truckMovingToBay.setQueueEntranceTime(simDateTime);
                         bayBin.get(4).setTruck(truckMovingToBay);
 
                     }
@@ -307,6 +317,7 @@ public class SimController {
                             if (BASELINE_waitForOpenBayQueue.peek() != null) {
                                 Truck truckToMove = BASELINE_waitForOpenBayQueue.remove();
                                 truckToMove.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime());
+                                truckToMove.setQueueEntranceTime(simDateTime);
                                 entity.setTruck(truckToMove);
                             }
                         }
@@ -315,16 +326,43 @@ public class SimController {
             }
 
             if (isBaselineRun) {
+                int minTimeVal = 0;
+
+                if (bayToScaleTravelQueue.size() > 0) {
+                    minTimeVal = bayToScaleTravelQueue.peek().getQueueDurationMin();
+                }
+
                 for (BayPlaceholderEntity entity : bayBin) {
                     if (entity.getTruckReadyToExitBay() != null) {
-                        Truck truckGoingToScale = entity.getTruckReadyToExitBay();
+                        Truck truckGoingToScale = new Truck();
+
+                        truckGoingToScale.setPropertyEntranceTime(entity.getTruckReadyToExitBay().getPropertyEntranceTime());
+                        truckGoingToScale.setQueueEntranceTime(entity.getTruckReadyToExitBay().getQueueEntranceTime());
+                        truckGoingToScale.setHasPassedInitialScale(true);
+
+                        long millisecondsScaleToBay = simDateTime.getTime() - truckGoingToScale.getQueueEntranceTime().getTime();
+                        double min = (millisecondsScaleToBay / 1000) / 60;
+                        runResultEntity.getListOfBayInToBayOutMin().add(min);
+
                         entity.setTruckReadyToExitBay(null);
 
-                        truckGoingToScale.setQueueDurationMin(RandomSampleService.getRandomBayToScaleTime());
                         if (bayToScaleTravelQueue.size() > 0) {
-                            if (truckGoingToScale.getQueueDurationMin() < bayToScaleTravelQueue.peek().getQueueDurationMin()) {
-                                truckGoingToScale.setQueueDurationMin(bayToScaleTravelQueue.peek().getQueueDurationMin());
+                            int newRandomSample = RandomSampleService.getRandomBayToScaleTime();
+
+                            //if sample is less than current min time, set new sample time to current minimum
+                            //else, new sample now becomes the minimum to check against
+                            if (newRandomSample < minTimeVal) {
+                                newRandomSample = minTimeVal;
+                            } else {
+                                minTimeVal = newRandomSample;
                             }
+
+                            truckGoingToScale.setQueueDurationMin(newRandomSample);
+
+                        } else {
+                            int randomSample = RandomSampleService.getRandomBayToScaleTime();
+                            truckGoingToScale.setQueueDurationMin(randomSample);
+                            minTimeVal = randomSample;
                         }
 
                         bayToScaleTravelQueue.add(truckGoingToScale);
@@ -347,23 +385,6 @@ public class SimController {
             }
 
         }
-
-        /*
-        List<Double> driverMin = runResultEntity.getListOfDriverMinOnProperty();
-
-        double averageTime;
-        long runningSum = 0;
-        for (double datapoint : driverMin) {
-            runningSum = runningSum + ((long) datapoint);
-        }
-
-        averageTime = runningSum / driverMin.size();
-
-        System.out.print("Average on-property time: " + averageTime + "  ::::: ");
-
-        System.out.println(driverMin);
-        */
-
 
         return runResultEntity;
     }
