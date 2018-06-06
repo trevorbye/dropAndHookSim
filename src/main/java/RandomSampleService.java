@@ -1,4 +1,6 @@
+import org.apache.commons.math3.distribution.GammaDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;
+import org.apache.commons.math3.distribution.RealDistribution;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -106,12 +108,14 @@ public class RandomSampleService {
     }
 
     public static int getRandomBayUnloadTime() {
-        double washProbability = Math.random();
+        double distributionTypeProbability = Math.random();
 
-        if (washProbability <= 0.11) {
+        //probability <= 0.195 falls into the "wash" distribution
+        //.195
+        if (distributionTypeProbability <= .195) {
 
-            double washMean = 62;
-            double washStdDev = 10;
+            double washMean = 65;
+            double washStdDev = 12;
             double rand = Math.random();
 
             NormalDistribution distribution = new NormalDistribution(washMean, washStdDev);
@@ -119,16 +123,29 @@ public class RandomSampleService {
 
             return (int) Math.round(xVal);
         } else {
+            //explanation for this logic:
+            //https://math.stackexchange.com/questions/1810257/gamma-functions-mean-and-standard-deviation-through-shape-and-rate
 
             double nonWashMean = 30;
-            double nonWashStdDev = 8;
+            double nonWashStdDev = 5;
+
+            //alpha ended up being too high, used custom values instead
+            //19.7
+            double alpha = 19.7;
+            //1.55
+            double beta = 1.55;
             double rand = Math.random();
 
-            NormalDistribution distribution = new NormalDistribution(nonWashMean, nonWashStdDev);
-            double xVal = distribution.inverseCumulativeProbability(rand);
+            RealDistribution gammaDistribution = new GammaDistribution(alpha, beta);
+            double xVal = gammaDistribution.inverseCumulativeProbability(rand);
 
+            //create custom distribution upper/lower bounds
             if (xVal < 20) {
                 xVal = 20;
+            }
+
+            if (xVal > 60) {
+                xVal = 60;
             }
 
             return (int) Math.round(xVal);
