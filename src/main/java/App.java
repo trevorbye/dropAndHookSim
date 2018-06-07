@@ -9,10 +9,7 @@ public class App {
 
         for (int simRuns = 1; simRuns <= 1000; simRuns++) {
             RunResultEntity entity = SimController.simSetup(2, 2, true, .75);
-            /*
             runningOutput.addAll(entity.getListOfDriverMinOnProperty());
-            */
-            runningOutput.addAll(entity.getListOfBayInToBayOutMin());
 
             /*
             //get std dev of growing list
