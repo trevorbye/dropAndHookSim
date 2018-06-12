@@ -22,6 +22,26 @@ public class RunResultEntity {
 
     private List<Double> listOfBayInToBayOutMin = new ArrayList<>();
 
+    private List<Integer> listOfArrivalHour = new ArrayList<>();
+
+    private List<Double> listOfBayToScaleMin = new ArrayList<>();
+
+    public List<Double> getListOfBayToScaleMin() {
+        return listOfBayToScaleMin;
+    }
+
+    public void setListOfBayToScaleMin(List<Double> listOfBayToScaleMin) {
+        this.listOfBayToScaleMin = listOfBayToScaleMin;
+    }
+
+    public List<Integer> getListOfArrivalHour() {
+        return listOfArrivalHour;
+    }
+
+    public void setListOfArrivalHour(List<Integer> listOfArrivalHour) {
+        this.listOfArrivalHour = listOfArrivalHour;
+    }
+
     public List<Double> getListOfBayInToBayOutMin() {
         return listOfBayInToBayOutMin;
     }

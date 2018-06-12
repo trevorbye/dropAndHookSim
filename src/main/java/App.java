@@ -7,7 +7,7 @@ public class App {
         List<Double> cumulativeResults = new ArrayList<>();
         List<Double> runningOutput = new ArrayList<>();
 
-        for (int simRuns = 1; simRuns <= 1000; simRuns++) {
+        for (int simRuns = 1; simRuns <= 500; simRuns++) {
             RunResultEntity entity = SimController.simSetup(2, 2, true, .75);
             runningOutput.addAll(entity.getListOfDriverMinOnProperty());
 

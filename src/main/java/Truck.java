@@ -2,11 +2,14 @@ import java.util.Date;
 
 public class Truck {
     private Date queueEntranceTime;
+    private Date waitForBayMarkerTime;
     private Date propertyEntranceTime;
     private int queueDurationMin;
+
     private boolean isPilotedByDriver;
     private boolean isPilotedByHostler;
     private boolean isEmpty;
+    private boolean scaleWaitPenalty;
 
     //used during baseline runs, because the driver passes through the scale twice, and on the second time he exits the property
     private boolean hasPassedInitialScale;
@@ -16,6 +19,22 @@ public class Truck {
     }
 
     public Truck() {
+    }
+
+    public boolean isScaleWaitPenalty() {
+        return scaleWaitPenalty;
+    }
+
+    public void setScaleWaitPenalty(boolean scaleWaitPenalty) {
+        this.scaleWaitPenalty = scaleWaitPenalty;
+    }
+
+    public Date getWaitForBayMarkerTime() {
+        return waitForBayMarkerTime;
+    }
+
+    public void setWaitForBayMarkerTime(Date waitForBayMarkerTime) {
+        this.waitForBayMarkerTime = waitForBayMarkerTime;
     }
 
     public boolean isEmpty() {

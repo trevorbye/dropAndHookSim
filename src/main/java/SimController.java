@@ -166,6 +166,13 @@ public class SimController {
                 //remove truck from arrival queue, set property entrance time, and push to scaleWaitQueue
                 Truck arrivingTruck = truckArrivalQueue.remove();
                 arrivingTruck.setPropertyEntranceTime(simDateTime);
+
+                if (scaleWaitQueue.size() == 0) {
+                    arrivingTruck.setScaleWaitPenalty(false);
+                } else {
+                    arrivingTruck.setScaleWaitPenalty(true);
+                }
+
                 scaleWaitQueue.add(arrivingTruck);
 
                 //add new random truck to arrival queue
@@ -182,7 +189,12 @@ public class SimController {
                 if (scaleWaitQueue.peek() != null) {
                     Truck truckLeavingScaleWaitQueue = scaleWaitQueue.remove();
 
-                    truckLeavingScaleWaitQueue.setQueueDurationMin(RandomSampleService.getRandomScaleProcessSample());
+                    int queuePenalty = 0;
+                    if (truckLeavingScaleWaitQueue.isScaleWaitPenalty()) {
+                        queuePenalty = 0;
+                    }
+
+                    truckLeavingScaleWaitQueue.setQueueDurationMin(RandomSampleService.getRandomScaleProcessSample() + queuePenalty);
                     scaleProcessQueue.add(truckLeavingScaleWaitQueue);
                 }
             }
@@ -199,6 +211,11 @@ public class SimController {
                             long millisecondsOnProperty = simDateTime.getTime() - truckToTrash.getPropertyEntranceTime().getTime();
                             double minOnProperty = (millisecondsOnProperty / 1000) / 60;
                             runResultEntity.getListOfDriverMinOnProperty().add(minOnProperty);
+                            /*
+                            long millisecondsBayToScale = simDateTime.getTime() - truckToTrash.getQueueEntranceTime().getTime();
+                            double min = (millisecondsBayToScale / 1000) / 60;
+                            runResultEntity.getListOfBayToScaleMin().add(min);
+                            */
 
                             //trash object
                             truckToTrash = null;
@@ -253,6 +270,9 @@ public class SimController {
                     while (keepScanning) {
                         if (BASELINE_scaleToBayTravelQueue.peek() != null && BASELINE_scaleToBayTravelQueue.peek().getQueueDurationMin() == 0) {
                             Truck truckWaitingForBay = BASELINE_scaleToBayTravelQueue.remove();
+
+                            //used to track queue penalty
+                            truckWaitingForBay.setWaitForBayMarkerTime(simDateTime);
                             BASELINE_waitForOpenBayQueue.add(truckWaitingForBay);
                         } else {
                             keepScanning = false;
@@ -302,8 +322,13 @@ public class SimController {
                     if (BASELINE_waitForOpenBayQueue.size() > 0) {
                         Truck truckMovingToBay = BASELINE_waitForOpenBayQueue.remove();
 
-                        truckMovingToBay.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime());
-                        truckMovingToBay.setQueueEntranceTime(simDateTime);
+                        int queuePenalty = 0;
+                        if (truckMovingToBay.getWaitForBayMarkerTime() != simDateTime) {
+                            //baseline calibration queuePenalty=3
+                            queuePenalty = 3;
+                        }
+
+                        truckMovingToBay.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime() + queuePenalty);
                         bayBin.get(4).setTruck(truckMovingToBay);
 
                     }
@@ -316,8 +341,14 @@ public class SimController {
                         if (entity.getTruck() == null) {
                             if (BASELINE_waitForOpenBayQueue.peek() != null) {
                                 Truck truckToMove = BASELINE_waitForOpenBayQueue.remove();
-                                truckToMove.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime());
-                                truckToMove.setQueueEntranceTime(simDateTime);
+
+                                int queuePenalty = 0;
+                                if (truckToMove.getWaitForBayMarkerTime() != simDateTime) {
+                                    //baseline calibration queuePenalty=3
+                                    queuePenalty = 3;
+                                }
+
+                                truckToMove.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime() + queuePenalty);
                                 entity.setTruck(truckToMove);
                             }
                         }
@@ -325,6 +356,7 @@ public class SimController {
                 }
             }
 
+            //remove trucks from bay if they are finished unloading
             if (isBaselineRun) {
                 int minTimeVal = 0;
 
@@ -337,12 +369,7 @@ public class SimController {
                         Truck truckGoingToScale = new Truck();
 
                         truckGoingToScale.setPropertyEntranceTime(entity.getTruckReadyToExitBay().getPropertyEntranceTime());
-                        truckGoingToScale.setQueueEntranceTime(entity.getTruckReadyToExitBay().getQueueEntranceTime());
                         truckGoingToScale.setHasPassedInitialScale(true);
-
-                        long millisecondsScaleToBay = simDateTime.getTime() - truckGoingToScale.getQueueEntranceTime().getTime();
-                        double min = (millisecondsScaleToBay / 1000) / 60;
-                        runResultEntity.getListOfBayInToBayOutMin().add(min);
 
                         entity.setTruckReadyToExitBay(null);
 
@@ -376,11 +403,36 @@ public class SimController {
 
                 while (continueScanning) {
                     if (bayToScaleTravelQueue.peek() != null && bayToScaleTravelQueue.peek().getQueueDurationMin() == 0) {
-                        Truck truckToMoveToScleWaitQueue = bayToScaleTravelQueue.remove();
-                        scaleWaitQueue.add(truckToMoveToScleWaitQueue);
+                        Truck truckToMoveToScaleWaitQueue = bayToScaleTravelQueue.remove();
+                        //truckToMoveToScaleWaitQueue.setQueueEntranceTime(simDateTime);
+
+                        if (scaleWaitQueue.size() != 0) {
+                            truckToMoveToScaleWaitQueue.setScaleWaitPenalty(true);
+                        } else {
+                            truckToMoveToScaleWaitQueue.setScaleWaitPenalty(false);
+                        }
+
+                        scaleWaitQueue.add(truckToMoveToScaleWaitQueue);
+
                     } else {
                         continueScanning = false;
                     }
+                }
+            }
+
+            //if scaleProcessQueue is empty, push next truck from scaleWaitQueue
+            if (scaleProcessQueue.size() == 0) {
+                if (scaleWaitQueue.peek() != null) {
+                    Truck truckLeavingScaleWaitQueue = scaleWaitQueue.remove();
+
+                    int queuePenalty = 0;
+                    if (truckLeavingScaleWaitQueue.isScaleWaitPenalty()) {
+                        //baseline calibration queuePenalty=2
+                        queuePenalty = 2;
+                    }
+
+                    truckLeavingScaleWaitQueue.setQueueDurationMin(RandomSampleService.getRandomScaleProcessSample() + queuePenalty);
+                    scaleProcessQueue.add(truckLeavingScaleWaitQueue);
                 }
             }
 
