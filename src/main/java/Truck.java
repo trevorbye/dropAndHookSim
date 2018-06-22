@@ -1,6 +1,8 @@
 import java.util.Date;
+import java.util.Random;
 
 public class Truck {
+    private Driver driver;
     private Date queueEntranceTime;
     private Date waitForBayMarkerTime;
     private Date propertyEntranceTime;
@@ -14,11 +16,27 @@ public class Truck {
     //used during baseline runs, because the driver passes through the scale twice, and on the second time he exits the property
     private boolean hasPassedInitialScale;
 
+    //probability assigns whether a truck is a local vs non-local delivery. Non local deliveries go through the baseline process and do not consume a hostler resource.
+    private boolean isLocalDelivery;
+
     public Truck(boolean isEmpty) {
         this.isEmpty = isEmpty;
     }
 
     public Truck() {
+    }
+
+    //only create getter to ensure immutability
+    public boolean isLocalDelivery() {
+        return isLocalDelivery;
+    }
+
+    public Driver getDriver() {
+        return driver;
+    }
+
+    public void setDriver(Driver driver) {
+        this.driver = driver;
     }
 
     public boolean isScaleWaitPenalty() {
@@ -95,5 +113,15 @@ public class Truck {
 
     public void setEmpty(boolean empty) {
         isEmpty = empty;
+    }
+
+    public void randomizeDeliveryType() {
+        double randomProbability = Math.random();
+
+        if (randomProbability < .15) {
+            this.isLocalDelivery = false;
+        } else {
+            this.isLocalDelivery = true;
+        }
     }
 }

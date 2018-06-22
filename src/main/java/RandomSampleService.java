@@ -83,6 +83,7 @@ public class RandomSampleService {
 
     public static int getRandomScaleProcessSample() {
         //returning 1 for now, until we have a true scale time. Currently the scale time is included in the scale to bay total time
+
         return 1;
     }
 
@@ -167,6 +168,10 @@ public class RandomSampleService {
         }
 
         return 1;
+    }
+
+    public static int getRandomPreTripTime() {
+        return 0;
     }
 
     public List<Integer> getZeroToSevenSampler() {
