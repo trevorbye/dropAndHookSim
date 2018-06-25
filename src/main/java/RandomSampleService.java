@@ -104,7 +104,6 @@ public class RandomSampleService {
     }
 
     public static int getRandomScaleToYardTravelTime() {
-        //this will pull from a PPS distribution once I get it set up
         return 2;
     }
 
@@ -171,7 +170,19 @@ public class RandomSampleService {
     }
 
     public static int getRandomPreTripTime() {
-        return 0;
+        double rand = Math.random();
+
+        NormalDistribution distribution = new NormalDistribution(17,3);
+        double xVal = distribution.inverseCumulativeProbability(rand);
+
+        if (xVal < 15) {
+            return 15;
+        } else if (xVal > 20) {
+            return 20;
+        } else {
+            return (int) Math.round(xVal);
+        }
+
     }
 
     public List<Integer> getZeroToSevenSampler() {

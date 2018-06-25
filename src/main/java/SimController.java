@@ -1,3 +1,4 @@
+import com.sun.org.apache.bcel.internal.generic.IF_ACMPEQ;
 import org.apache.commons.lang3.time.DateUtils;
 
 import java.util.*;
@@ -18,8 +19,7 @@ public class SimController {
         /*
         * bin setup
         * */
-        int maxHostlers = hostlerCount;
-        int hostlerBin = maxHostlers;
+        int hostlerBin = hostlerCount;
         List<Integer> hostlerToYardWalkTimeMin = new ArrayList<>();
         List<Integer> yardToHostlerWalkTimeMin = new ArrayList<>();
 
@@ -67,34 +67,26 @@ public class SimController {
         Queue<Truck> scaleToBayTravelQueue = new LinkedList<>();
         Queue<Truck> waitForOpenBayQueue = new LinkedList<>();
 
-        //similar queues: truck gets added to YardCapQueue if there is no room to drop a full truck
-        //or added to EmptyTruckQueue if there is not an empty truck available to leave with
         //NOT INCLUDED IN DISCRETE EVENT TIME STEP CHECK
         Queue<Driver> driverWaitForEmptyTruckQueue = new LinkedList<>();
 
-        //time for driver to drop full truck in yard
-        Queue<Truck> fullTruckDropQueue = new LinkedList<>();
+        List<Hostler> hostlerUnavailableList = new ArrayList<>();
 
-        //time for hostler to drop empty truck in yard
-        Queue<Truck> emptyTruckDropQueue = new LinkedList<>();
-
-        //at this point, truck can be input into yardBin
+        Queue<Driver> driverWalkToYardQueue = new LinkedList<>();
 
         Queue<Truck> yardToBayTravelQueue = new LinkedList<>();
-
-        //after this, truck can be input into bay
 
         //this queue loops back into scaleWaitQueue
         Queue<Truck> bayToScaleTravelQueue = new LinkedList<>();
 
         //all these queues/lists are entered as params to the runSimulation()
-        return runSimulation(hostlerToYardWalkTimeMin, yardToHostlerWalkTimeMin, yardBin, bayBin, truckArrivalQueue, scaleWaitQueue, scaleProcessQueue, scaleToYardTravelQueue, driverWaitForEmptyTruckQueue,fullTruckDropQueue,emptyTruckDropQueue, yardToBayTravelQueue, bayToScaleTravelQueue,maxHostlers, hostlerBin,maxYardCapacity,
-                simDateTime, isBaselineRun, scaleToBayTravelQueue, waitForOpenBayQueue, bay5UtilizationPercent);
+        return runSimulation(hostlerToYardWalkTimeMin, yardToHostlerWalkTimeMin, yardBin, bayBin, truckArrivalQueue, scaleWaitQueue, scaleProcessQueue, scaleToYardTravelQueue, driverWaitForEmptyTruckQueue, yardToBayTravelQueue, bayToScaleTravelQueue,hostlerBin,maxYardCapacity,
+                simDateTime, isBaselineRun, scaleToBayTravelQueue, waitForOpenBayQueue, bay5UtilizationPercent, hostlerUnavailableList, driverWalkToYardQueue);
     }
 
     public static RunResultEntity runSimulation(List<Integer> hostlerToYardWalkTimeMin, List<Integer> yardToHostlerWalkTimeMin, List<Truck> yardBin, List<BayPlaceholderEntity> bayBin
-    ,Queue<Truck> truckArrivalQueue, Queue<Truck> scaleWaitQueue, Queue<Truck> scaleProcessQueue, Queue<Truck> scaleToYardTravelQueue, Queue<Driver> driverWaitForEmptyTruckQueue, Queue<Truck> fullTruckDropQueue, Queue<Truck> emptyTruckDropQueue, Queue<Truck> yardToBayTravelQueue, Queue<Truck> bayToScaleTravelQueue
-    , int maxHostlers, int hostlerBin, int maxYardCapacity, Date simDateTime, boolean isBaselineRun, Queue<Truck> scaleToBayTravelQueue, Queue<Truck> waitForOpenBayQueue, double bayFiveUtilizationPercent) {
+    ,Queue<Truck> truckArrivalQueue, Queue<Truck> scaleWaitQueue, Queue<Truck> scaleProcessQueue, Queue<Truck> scaleToYardTravelQueue, Queue<Driver> driverWaitForEmptyTruckQueue, Queue<Truck> yardToBayTravelQueue, Queue<Truck> bayToScaleTravelQueue
+    , int hostlerBin, int maxYardCapacity, Date simDateTime, boolean isBaselineRun, Queue<Truck> scaleToBayTravelQueue, Queue<Truck> waitForOpenBayQueue, double bayFiveUtilizationPercent, List<Hostler> hostlerUnavailableList, Queue<Driver> driverWalkToYardQueue) {
 
         //insert all event-based queues into List<Queue<Truck>> to pass into evaluateEventTimeSteps(). **not all queues are included in this if they aren't events that need to be stepped.
         List<Queue<Truck>> listOfEventQueues = new ArrayList<>();
@@ -130,7 +122,7 @@ public class SimController {
             Date priorDate = simDateTime;
 
             //step all events, step sim clock by same amount
-            int stepValMin = evaluateEventTimeSteps(listOfEventQueues, bayBin, hostlerToYardWalkTimeMin, yardToHostlerWalkTimeMin);
+            int stepValMin = evaluateEventTimeSteps(listOfEventQueues, bayBin, hostlerUnavailableList, driverWalkToYardQueue, yardBin);
             simDateTime = DateUtils.addMinutes(simDateTime, stepValMin);
 
             //compare priorDate and newly stepped simDateTime and re-randomize bay 5 downtimes if necessary
@@ -208,12 +200,6 @@ public class SimController {
                             double minOnProperty = (millisecondsOnProperty / 1000) / 60;
                             runResultEntity.getListOfDriverMinOnProperty().add(minOnProperty);
 
-                            /*
-                            long millisecondsBayToScale = simDateTime.getTime() - truckToTrash.getQueueEntranceTime().getTime();
-                            double min = (millisecondsBayToScale / 1000) / 60;
-                            runResultEntity.getListOfBayToScaleMin().add(min);
-                            */
-
                             //trash object
                             truckToTrash = null;
 
@@ -267,6 +253,9 @@ public class SimController {
                         Truck truckToBeDroppedInYard = scaleToYardTravelQueue.remove();
                         truckToBeDroppedInYard.setPilotedByHostler(false);
                         yardBin.add(truckToBeDroppedInYard);
+
+                        //add hostler to unavailableList to account for walk time
+                        hostlerUnavailableList.add(new Hostler(4));
                     } else {
                         keepScanning = false;
                     }
@@ -274,8 +263,23 @@ public class SimController {
 
             }
 
-            //if BASELINE_ push any trucks with queueDuration=0 from scaleToBayTravelQueue to waitForOpenBayQueue
-            //else, push any trucks with queueDuration=0 from scaleToYardTravelQueue
+            //check hostlerUnavailable list for hostlers ready to become available
+            if (!isBaselineRun) {
+                List<Hostler> hostlersToRemove = new ArrayList<>();
+
+                if (hostlerUnavailableList.size() > 0) {
+                    for (Hostler hostler : hostlerUnavailableList) {
+                        if (hostler.getActivityTimeMin() == 0) {
+                            hostlersToRemove.add(hostler);
+                        }
+                    }
+                }
+
+                hostlerBin = hostlerBin + hostlersToRemove.size();
+                hostlerUnavailableList.removeAll(hostlersToRemove);
+            }
+
+            //push any trucks with queueDuration=0 from scaleToBayTravelQueue to waitForOpenBayQueue
             if (isBaselineRun) {
                 if (scaleToBayTravelQueue.size() > 0) {
                     boolean keepScanning = true;
@@ -290,6 +294,47 @@ public class SimController {
                         } else {
                             keepScanning = false;
                         }
+                    }
+                }
+            } else {
+                if (scaleToBayTravelQueue.size() > 0) {
+                    boolean keepScanning = true;
+
+                    while (keepScanning) {
+                        if (scaleToBayTravelQueue.peek() != null && scaleToBayTravelQueue.peek().getQueueDurationMin() == 0) {
+                            Truck truckWaitingForBay = scaleToBayTravelQueue.remove();
+
+                            if (truckWaitingForBay.isLocalDelivery()) {
+                                //add driver to walkToYardQueue
+                                Driver driver = truckWaitingForBay.getDriver();
+                                driver.setEngagedInActivty(true);
+                                driver.setActivityTimeMin(4);
+
+                                driverWalkToYardQueue.add(driver);
+                                truckWaitingForBay.setDriver(null);
+                            }
+
+                            //used to track queue penalty
+                            truckWaitingForBay.setWaitForBayMarkerTime(simDateTime);
+                            waitForOpenBayQueue.add(truckWaitingForBay);
+                        } else {
+                            keepScanning = false;
+                        }
+                    }
+                }
+            }
+
+            //process driver walk to yard queue and add to wait for empty truck queue
+            if (!isBaselineRun) {
+                boolean keepScanning = true;
+
+                while (keepScanning) {
+                    if (driverWalkToYardQueue.peek() != null && driverWalkToYardQueue.peek().getActivityTimeMin() == 0) {
+                        Driver driver = driverWalkToYardQueue.remove();
+                        driver.setEngagedInActivty(false);
+                        driverWaitForEmptyTruckQueue.add(driver);
+                    } else {
+                        keepScanning = false;
                     }
                 }
             }
@@ -478,19 +523,24 @@ public class SimController {
                     List<Truck> trucksToRemove = new ArrayList<>();
 
                     for (Truck truck : yardBin) {
-                        if (truck.getDriver().getActivityTimeMin() == 0) {
-                            trucksToRemove.add(truck);
+                        if (truck.getDriver() != null) {
 
-                            long millisecondsOnProperty = simDateTime.getTime() - truck.getDriver().getPropertyEntranceTime().getTime();
-                            double minOnProperty = (millisecondsOnProperty / 1000) / 60;
-                            runResultEntity.getListOfDriverMinOnProperty().add(minOnProperty);
+                            Driver currentDriver = truck.getDriver();
+
+                            if (currentDriver.isEngagedInActivty() && currentDriver.getActivityTimeMin() == 0) {
+                                trucksToRemove.add(truck);
+
+                                long millisecondsOnProperty = simDateTime.getTime() - currentDriver.getPropertyEntranceTime().getTime();
+                                double minOnProperty = (millisecondsOnProperty / 1000) / 60;
+                                runResultEntity.getListOfDriverMinOnProperty().add(minOnProperty);
+                            }
                         }
                     }
 
                     yardBin.removeAll(trucksToRemove);
                 }
             }
-            
+
         }
 
         return runResultEntity;
@@ -502,7 +552,7 @@ public class SimController {
      * @param bayBin
      * @return **returns the the number of minutes to step sim clock by
      */
-    public static int evaluateEventTimeSteps(List<Queue<Truck>> listOfEventQueues, List<BayPlaceholderEntity> bayBin, List<Integer> hostlerToYardWalkTimeMin, List<Integer> yardToHostlerWalkTimeMin) {
+    public static int evaluateEventTimeSteps(List<Queue<Truck>> listOfEventQueues, List<BayPlaceholderEntity> bayBin, List<Hostler> hostlerUnavailableList, Queue<Driver> driverWalkToYardQueue, List<Truck> yardBin) {
         int minTimeValueDeduction = 0;
         List<Integer> listOfTimeVals = new ArrayList<>();
 
@@ -519,8 +569,19 @@ public class SimController {
             }
         }
 
-        listOfTimeVals.addAll(hostlerToYardWalkTimeMin);
-        listOfTimeVals.addAll(yardToHostlerWalkTimeMin);
+        for (Hostler hostler : hostlerUnavailableList) {
+            listOfTimeVals.add(hostler.getActivityTimeMin());
+        }
+
+        for (Driver driver : driverWalkToYardQueue) {
+            listOfTimeVals.add(driver.getActivityTimeMin());
+        }
+
+        for (Truck truck : yardBin) {
+            if (truck.getDriver().isEngagedInActivty()) {
+                listOfTimeVals.add(truck.getDriver().getActivityTimeMin());
+            }
+        }
 
         //sort collection ASC and get first element (min value)
         Collections.sort(listOfTimeVals);
@@ -542,12 +603,21 @@ public class SimController {
             }
         }
 
-        for (Integer walkMin : hostlerToYardWalkTimeMin) {
-            walkMin = walkMin - minTimeValueDeduction;
+        for (Hostler hostler : hostlerUnavailableList) {
+            int currentDuration = hostler.getActivityTimeMin();
+            hostler.setActivityTimeMin(currentDuration - minTimeValueDeduction);
         }
 
-        for (Integer walkMin : yardToHostlerWalkTimeMin) {
-            walkMin = walkMin - minTimeValueDeduction;
+        for (Driver driver : driverWalkToYardQueue) {
+            int currentDuration = driver.getActivityTimeMin();
+            driver.setActivityTimeMin(currentDuration - minTimeValueDeduction);
+        }
+
+        for (Truck truck : yardBin) {
+            if (truck.getDriver().isEngagedInActivty()) {
+                int currentDuration = truck.getDriver().getActivityTimeMin();
+                truck.getDriver().setActivityTimeMin(currentDuration - minTimeValueDeduction);
+            }
         }
 
         return minTimeValueDeduction;

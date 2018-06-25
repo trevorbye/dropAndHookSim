@@ -3,6 +3,7 @@ import java.util.Random;
 
 public class Truck {
     private Driver driver;
+
     private Date queueEntranceTime;
     private Date waitForBayMarkerTime;
     private Date propertyEntranceTime;
