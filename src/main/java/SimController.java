@@ -312,6 +312,7 @@ public class SimController {
 
                                 driverWalkToYardQueue.add(driver);
                                 truckWaitingForBay.setDriver(null);
+                                truckWaitingForBay.setPilotedByDriver(false);
                             }
 
                             //used to track queue penalty
@@ -412,6 +413,138 @@ public class SimController {
                         }
                     }
                 }
+            } else {
+
+                //check bay 5 availability
+                boolean bay5Available = false;
+
+                //check bay 5 availability (index 4 in list) and then check against randomized downtime blocks
+                if (bayBin.get(4).getTruck() == null) {
+                    //check if current sim time is during a bay 5 randomized downtime interval
+                    Calendar curr = Calendar.getInstance();
+                    curr.setTime(simDateTime);
+                    int currentHour = curr.get(Calendar.HOUR_OF_DAY);
+
+                    boolean eligibleBay5Hour = true;
+                    for (int downtimeHour : bay5Downtimes) {
+                        if (downtimeHour == currentHour) {
+                            eligibleBay5Hour = false;
+                            break;
+                        }
+                    }
+
+                    if (eligibleBay5Hour) {
+                        bay5Available = true;
+                    }
+                }
+
+                //push all trucks into bay if there is an available spot. Randomize bay duration if truck is pushed in
+
+                //push truck to bay 5 if available, and ONLY if hostler is available
+                //if truck is a non-local delivery the driver can do the process himself without hostler
+                if (bay5Available) {
+                    if (waitForOpenBayQueue.size() > 0) {
+                        if (!waitForOpenBayQueue.peek().isLocalDelivery()) {
+                            Truck truckMovingToBay = waitForOpenBayQueue.remove();
+
+                            int queuePenalty = 0;
+                            if (truckMovingToBay.getWaitForBayMarkerTime() != simDateTime) {
+                                //baseline calibration queuePenalty=3
+                                queuePenalty = 3;
+                            }
+
+                            truckMovingToBay.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime() + queuePenalty);
+                            bayBin.get(4).setTruck(truckMovingToBay);
+                        } else {
+                            //check hostler availability
+                            if (hostlerBin > 0) {
+                                hostlerBin = hostlerBin - 1;
+                                Truck truckMovingToBay = waitForOpenBayQueue.remove();
+
+                                int queuePenalty = 0;
+                                if (truckMovingToBay.getWaitForBayMarkerTime() != simDateTime) {
+                                    //baseline calibration queuePenalty=3
+                                    queuePenalty = 3;
+                                }
+
+                                truckMovingToBay.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime() + queuePenalty);
+
+                                //accumulate hostler unavailable time
+                                int transactionTime = 2;
+                                int processQueueTime = 2;
+                                int processPaperWork = 3;
+                                int cipHookupTime = 0;
+
+                                if (truckMovingToBay.getQueueDurationMin() > 55) {
+                                    cipHookupTime = 3;
+                                    truckMovingToBay.setWash(true);
+                                }
+                                bayBin.get(4).setTruck(truckMovingToBay);
+                                hostlerUnavailableList.add(new Hostler(transactionTime + processQueueTime + processPaperWork + cipHookupTime));
+
+                            } else {
+                                long currCount = runResultEntity.getCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue();
+                                runResultEntity.setCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue(currCount++);
+                            }
+                        }
+                    }
+                }
+
+                //check other bays' availability and push trucks
+                for (BayPlaceholderEntity entity : bayBin) {
+
+                    if (entity.getBayNumber() != 5) {
+                        if (entity.getTruck() == null) {
+                            if (waitForOpenBayQueue.peek() != null) {
+
+                                if (!waitForOpenBayQueue.peek().isLocalDelivery()) {
+                                    Truck truckMovingToBay = waitForOpenBayQueue.remove();
+
+                                    int queuePenalty = 0;
+                                    if (truckMovingToBay.getWaitForBayMarkerTime() != simDateTime) {
+                                        //baseline calibration queuePenalty=3
+                                        queuePenalty = 3;
+                                    }
+
+                                    truckMovingToBay.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime() + queuePenalty);
+                                    entity.setTruck(truckMovingToBay);
+                                } else {
+                                    //check hostler availability
+                                    if (hostlerBin > 0) {
+                                        hostlerBin = hostlerBin - 1;
+                                        Truck truckMovingToBay = waitForOpenBayQueue.remove();
+
+                                        int queuePenalty = 0;
+                                        if (truckMovingToBay.getWaitForBayMarkerTime() != simDateTime) {
+                                            //baseline calibration queuePenalty=3
+                                            queuePenalty = 3;
+                                        }
+
+                                        truckMovingToBay.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime() + queuePenalty);
+
+                                        //accumulate hostler unavailable time
+                                        int transactionTime = 2;
+                                        int processQueueTime = 2;
+                                        int processPaperWork = 3;
+                                        int cipHookupTime = 0;
+
+                                        if (truckMovingToBay.getQueueDurationMin() > 55) {
+                                            cipHookupTime = 3;
+                                            truckMovingToBay.setWash(true);
+                                        }
+                                        entity.setTruck(truckMovingToBay);
+                                        hostlerUnavailableList.add(new Hostler(transactionTime + processQueueTime + processPaperWork + cipHookupTime));
+
+                                    } else {
+                                        long currCount = runResultEntity.getCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue();
+                                        runResultEntity.setCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue(currCount++);
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+                }
             }
 
             //remove trucks from bay if they are finished unloading
@@ -452,6 +585,35 @@ public class SimController {
                         }
 
                         bayToScaleTravelQueue.add(truckGoingToScale);
+                    }
+                }
+            } else {
+                for (BayPlaceholderEntity entity : bayBin) {
+                    if (entity.getTruck() != null && entity.getTruck().getQueueDurationMin() == 0) {
+
+                        if (entity.getTruck().isLocalDelivery()) {
+
+                            if (hostlerBin > 0) {
+                                hostlerBin = hostlerBin - 1;
+
+                                Truck truckGoingToScale = entity.getTruck();
+                                truckGoingToScale.setPilotedByHostler(true);
+                                truckGoingToScale.setQueueDurationMin(1);
+                                bayToScaleTravelQueue.add(truckGoingToScale);
+
+                                entity.setTruck(null);
+                            } else {
+                                long currentCount = runResultEntity.getCountOfHostlerUnavailableToMoveTruckAfterFinishedInBay();
+                                runResultEntity.setCountOfHostlerUnavailableToMoveTruckAfterFinishedInBay(currentCount);
+                            }
+
+                        } else {
+                            Truck truckGoingToScale = entity.getTruck();
+                            truckGoingToScale.setQueueDurationMin(1);
+                            bayToScaleTravelQueue.add(truckGoingToScale);
+                            entity.setTruck(null);
+
+                        }
                     }
                 }
             }
@@ -559,7 +721,11 @@ public class SimController {
         //add all time values from all param queues
         for (BayPlaceholderEntity bayPlaceholder : bayBin) {
             if (bayPlaceholder.getTruck() != null) {
-                listOfTimeVals.add(bayPlaceholder.getTruck().getQueueDurationMin());
+                int timeVal = bayPlaceholder.getTruck().getQueueDurationMin();
+
+                if (timeVal != 0) {
+                    listOfTimeVals.add(timeVal);
+                }
             }
         }
 

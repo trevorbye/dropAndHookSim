@@ -8,12 +8,11 @@ public class RunResultEntity {
     private double averageDriverPropertyTimeMin;
 
     //hostler summary stats
-    private long totalHostlerIdleTimeHours;
-    private double averageHostlerIdleTimePerDayMin;
-    private int countOfHostlerNotAvailableToMoveFullLoad;
+    private long countOfHostlerUnavailableToMoveTruckIntoBayFromQueue;
+    private long countOfHostlerUnavailableToMoveTruckAfterFinishedInBay;
 
-    //bay summary stats
-    private double averageBayDowntimeMinPerDay;
+
+
 
     //iteratively add to these lists during the sim, then run calculations at end to set summary stat variables
     private List<Double> listOfDriverMinOnProperty = new ArrayList<>();
@@ -25,6 +24,22 @@ public class RunResultEntity {
     private List<Integer> listOfArrivalHour = new ArrayList<>();
 
     private List<Double> listOfBayToScaleMin = new ArrayList<>();
+
+    public long getCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue() {
+        return countOfHostlerUnavailableToMoveTruckIntoBayFromQueue;
+    }
+
+    public void setCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue(long countOfHostlerUnavailableToMoveTruckIntoBayFromQueue) {
+        this.countOfHostlerUnavailableToMoveTruckIntoBayFromQueue = countOfHostlerUnavailableToMoveTruckIntoBayFromQueue;
+    }
+
+    public long getCountOfHostlerUnavailableToMoveTruckAfterFinishedInBay() {
+        return countOfHostlerUnavailableToMoveTruckAfterFinishedInBay;
+    }
+
+    public void setCountOfHostlerUnavailableToMoveTruckAfterFinishedInBay(long countOfHostlerUnavailableToMoveTruckAfterFinishedInBay) {
+        this.countOfHostlerUnavailableToMoveTruckAfterFinishedInBay = countOfHostlerUnavailableToMoveTruckAfterFinishedInBay;
+    }
 
     public List<Double> getListOfBayToScaleMin() {
         return listOfBayToScaleMin;

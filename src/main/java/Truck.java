@@ -13,6 +13,7 @@ public class Truck {
     private boolean isPilotedByHostler;
     private boolean isEmpty;
     private boolean scaleWaitPenalty;
+    private boolean isWash;
 
     //used during baseline runs, because the driver passes through the scale twice, and on the second time he exits the property
     private boolean hasPassedInitialScale;
@@ -25,6 +26,14 @@ public class Truck {
     }
 
     public Truck() {
+    }
+
+    public boolean isWash() {
+        return isWash;
+    }
+
+    public void setWash(boolean wash) {
+        isWash = wash;
     }
 
     //only create getter to ensure immutability
