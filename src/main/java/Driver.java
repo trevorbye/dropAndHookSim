@@ -2,22 +2,22 @@ import java.util.Date;
 
 public class Driver {
     private Date propertyEntranceTime;
-    private boolean isEngagedInActivty;
+    private boolean isEngagedInActivity;
     private int activityTimeMin;
 
     public Driver() {
     }
 
-    public Driver(boolean isEngagedInActivty) {
-        this.isEngagedInActivty = isEngagedInActivty;
+    public Driver(boolean isEngagedInActivity) {
+        this.isEngagedInActivity = isEngagedInActivity;
     }
 
-    public boolean isEngagedInActivty() {
-        return isEngagedInActivty;
+    public boolean isEngagedInActivity() {
+        return isEngagedInActivity;
     }
 
-    public void setEngagedInActivty(boolean engagedInActivty) {
-        isEngagedInActivty = engagedInActivty;
+    public void setEngagedInActivity(boolean engagedInActivity) {
+        isEngagedInActivity = engagedInActivity;
     }
 
     public int getActivityTimeMin() {

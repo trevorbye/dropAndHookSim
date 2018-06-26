@@ -1,4 +1,3 @@
-import com.sun.org.apache.bcel.internal.generic.IF_ACMPEQ;
 import org.apache.commons.lang3.time.DateUtils;
 
 import java.util.*;
@@ -307,7 +306,7 @@ public class SimController {
                             if (truckWaitingForBay.isLocalDelivery()) {
                                 //add driver to walkToYardQueue
                                 Driver driver = truckWaitingForBay.getDriver();
-                                driver.setEngagedInActivty(true);
+                                driver.setEngagedInActivity(true);
                                 driver.setActivityTimeMin(4);
 
                                 driverWalkToYardQueue.add(driver);
@@ -332,7 +331,7 @@ public class SimController {
                 while (keepScanning) {
                     if (driverWalkToYardQueue.peek() != null && driverWalkToYardQueue.peek().getActivityTimeMin() == 0) {
                         Driver driver = driverWalkToYardQueue.remove();
-                        driver.setEngagedInActivty(false);
+                        driver.setEngagedInActivity(false);
                         driverWaitForEmptyTruckQueue.add(driver);
                     } else {
                         keepScanning = false;
@@ -484,7 +483,8 @@ public class SimController {
 
                             } else {
                                 long currCount = runResultEntity.getCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue();
-                                runResultEntity.setCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue(currCount++);
+                                currCount++;
+                                runResultEntity.setCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue(currCount);
                             }
                         }
                     }
@@ -537,7 +537,8 @@ public class SimController {
 
                                     } else {
                                         long currCount = runResultEntity.getCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue();
-                                        runResultEntity.setCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue(currCount++);
+                                        currCount++;
+                                        runResultEntity.setCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue(currCount);
                                     }
                                 }
 
@@ -604,6 +605,7 @@ public class SimController {
                                 entity.setTruck(null);
                             } else {
                                 long currentCount = runResultEntity.getCountOfHostlerUnavailableToMoveTruckAfterFinishedInBay();
+                                currentCount++;
                                 runResultEntity.setCountOfHostlerUnavailableToMoveTruckAfterFinishedInBay(currentCount);
                             }
 
@@ -664,19 +666,22 @@ public class SimController {
 
                 if (yardBinSize > 0 && driverWaitQueueSize > 0) {
                     for (Truck truck : yardBin) {
-                        if (driverWaitForEmptyTruckQueue.peek() == null) {
-                            break;
-                        } else {
-                            Driver driver = driverWaitForEmptyTruckQueue.remove();
-                            driver.setEngagedInActivty(true);
-                            driver.setActivityTimeMin(RandomSampleService.getRandomPreTripTime());
+                        if (truck.getDriver() == null) {
 
-                            truck.setDriver(driver);
-                            truck.setPilotedByDriver(true);
+                            if (driverWaitForEmptyTruckQueue.peek() == null) {
+                                break;
+                            } else {
+                                Driver driver = driverWaitForEmptyTruckQueue.remove();
+                                driver.setEngagedInActivity(true);
+                                driver.setActivityTimeMin(RandomSampleService.getRandomPreTripTime());
+
+                                truck.setDriver(driver);
+                                truck.setPilotedByDriver(true);
+                            }
+
                         }
                     }
                 }
-
             }
 
             //check all trucks in yard. If driver pre trip is finished he can leave the property
@@ -689,7 +694,7 @@ public class SimController {
 
                             Driver currentDriver = truck.getDriver();
 
-                            if (currentDriver.isEngagedInActivty() && currentDriver.getActivityTimeMin() == 0) {
+                            if (currentDriver.isEngagedInActivity() && currentDriver.getActivityTimeMin() == 0) {
                                 trucksToRemove.add(truck);
 
                                 long millisecondsOnProperty = simDateTime.getTime() - currentDriver.getPropertyEntranceTime().getTime();
@@ -744,7 +749,7 @@ public class SimController {
         }
 
         for (Truck truck : yardBin) {
-            if (truck.getDriver().isEngagedInActivty()) {
+            if (truck.getDriver() != null && truck.getDriver().isEngagedInActivity()) {
                 listOfTimeVals.add(truck.getDriver().getActivityTimeMin());
             }
         }
@@ -758,7 +763,11 @@ public class SimController {
         for (BayPlaceholderEntity bayPlaceholder : bayBin) {
             if (bayPlaceholder.getTruck() != null) {
                 int currentDuration = bayPlaceholder.getTruck().getQueueDurationMin();
-                bayPlaceholder.getTruck().setQueueDurationMin(currentDuration - minTimeValueDeduction);
+
+                //if current duration = 0, truck is awaiting hostler, do not deduct time
+                if (currentDuration != 0) {
+                    bayPlaceholder.getTruck().setQueueDurationMin(currentDuration - minTimeValueDeduction);
+                }
             }
         }
 
@@ -780,7 +789,7 @@ public class SimController {
         }
 
         for (Truck truck : yardBin) {
-            if (truck.getDriver().isEngagedInActivty()) {
+            if (truck.getDriver() != null && truck.getDriver().isEngagedInActivity()) {
                 int currentDuration = truck.getDriver().getActivityTimeMin();
                 truck.getDriver().setActivityTimeMin(currentDuration - minTimeValueDeduction);
             }
