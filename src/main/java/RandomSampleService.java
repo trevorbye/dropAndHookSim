@@ -1,11 +1,7 @@
-import org.apache.commons.math3.distribution.GammaDistribution;
-import org.apache.commons.math3.distribution.NormalDistribution;
-import org.apache.commons.math3.distribution.RealDistribution;
+import org.apache.commons.lang3.time.DateUtils;
+import org.apache.commons.math3.distribution.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class RandomSampleService {
 
@@ -62,7 +58,7 @@ public class RandomSampleService {
         setSixteenTo23Sampler(tempList3);
     }
 
-    public int getRandomArrivalSample(int hourNumber) {
+    public int getRandomArrivalSample(int hourNumber, double multiplierValue) {
         List<Integer> loaderList = null;
 
         if (hourNumber >= 0 && hourNumber <= 7) {
@@ -77,17 +73,49 @@ public class RandomSampleService {
 
         Random random = new Random();
         int randomSample = random.nextInt(size);
+        int roundedModifiedSample = (int)Math.round(randomSample * multiplierValue);
 
-        return loaderList.get(randomSample);
+        return loaderList.get(roundedModifiedSample);
+    }
+
+    public void arrivalSampleLoadCountTest(int targetLoadsPerDay) {
+        Date endTime = new Date("01/02/2018 00:00:00");
+        double testMultiplierValue = 0.93;
+        List<Integer> loadList = new ArrayList<>();
+
+        int runs = 0;
+        while (runs < 1000) {
+
+            Date simTime = new Date("01/01/2018 00:00:00");
+            int runnningLoadCount = 0;
+
+            while (simTime.before(endTime)) {
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(simTime);
+                int currentHour = cal.get(Calendar.HOUR_OF_DAY);
+
+                int randomSample = getRandomArrivalSample(currentHour, testMultiplierValue);
+                simTime = DateUtils.addMinutes(simTime, randomSample);
+                runnningLoadCount++;
+            }
+            loadList.add(runnningLoadCount);
+            runs++;
+        }
+        int runningTotal = 0;
+        for (int val : loadList) {
+            runningTotal = runningTotal + val;
+        }
+        double average = runningTotal / ((double)loadList.size());
+        System.out.print(average);
     }
 
     public static int getRandomScaleProcessSample() {
-        //returning 1 for now, until we have a true scale time. Currently the scale time is included in the scale to bay total time
+        //returning 0 to represent removed scale process
 
-        return 1;
+        return 0;
     }
 
-    public static int getRandomBaselineScaleToBayTime () {
+    public static int getRandomBaselineScaleToBayTime() {
         double mean = 1.804176;
         double stdDev = 0.671778;
         double rand = Math.random();
@@ -100,7 +128,7 @@ public class RandomSampleService {
             returnVal = 1;
         }
 
-        return 1;
+        return 0;
     }
 
     public static int getRandomScaleToYardTravelTime() {
@@ -166,22 +194,15 @@ public class RandomSampleService {
             returnVal = 1;
         }
 
-        return 1;
+        return 0;
     }
 
     public static int getRandomPreTripTime() {
-        double rand = Math.random();
 
-        NormalDistribution distribution = new NormalDistribution(17,3);
-        double xVal = distribution.inverseCumulativeProbability(rand);
+        RealDistribution triangleDist = new TriangularDistribution(15,17,20);
+        double xVal = triangleDist.sample();
 
-        if (xVal < 15) {
-            return 15;
-        } else if (xVal > 20) {
-            return 20;
-        } else {
-            return (int) Math.round(xVal);
-        }
+        return (int) Math.round(xVal);
 
     }
 

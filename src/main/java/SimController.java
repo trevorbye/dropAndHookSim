@@ -33,7 +33,7 @@ public class SimController {
 
         //create bay container and fill with BayPlaceHolderEntity objects with null trucks
         List<BayPlaceholderEntity> bayBin = new ArrayList<>();
-        for (int spot = 1; spot <=5; spot++) {
+        for (int spot = 1; spot <=6; spot++) {
             BayPlaceholderEntity entity = new BayPlaceholderEntity(spot);
             bayBin.add(entity);
         }
@@ -106,8 +106,9 @@ public class SimController {
 
         //build run results object to return at end of sim run
         RunResultEntity runResultEntity = new RunResultEntity();
+        runResultEntity.setMaxYardSize(0);
         //define end of sim
-        Date simEndDateTime = new Date("01/30/2018 00:00:00");
+        Date simEndDateTime = new Date("06/31/2018 00:00:00");
 
         //define downtime hours list for bay #5 for BASELINE runs. This gets re-randomized for each new day in the sim
         List<Integer> bay5Downtimes = randomizeBay5Downtime(bayFiveUtilizationPercent);
@@ -164,7 +165,7 @@ public class SimController {
                 truck.setPilotedByDriver(true);
                 truck.setDriver(new Driver(false));
                 truck.setPilotedByHostler(false);
-                truck.setQueueDurationMin(sampleService.getRandomArrivalSample(currentSimHour));
+                truck.setQueueDurationMin(sampleService.getRandomArrivalSample(currentSimHour, 0.93));
                 truck.setHasPassedInitialScale(false);
                 truck.randomizeDeliveryType();
                 truckArrivalQueue.add(truck);
@@ -197,6 +198,19 @@ public class SimController {
 
                             long millisecondsOnProperty = simDateTime.getTime() - truckToTrash.getPropertyEntranceTime().getTime();
                             double minOnProperty = (millisecondsOnProperty / 1000) / 60;
+
+                            double detentionMinutes = 0;
+
+                            if (truckToTrash.isWash()) {
+                                if (minOnProperty < 90) {
+                                    detentionMinutes = 90 - minOnProperty;
+                                }
+                            } else {
+                                if (minOnProperty < 45) {
+                                    detentionMinutes = 45 - minOnProperty;
+                                }
+                            }
+
                             runResultEntity.getListOfDriverMinOnProperty().add(minOnProperty);
 
                             //trash object
@@ -332,6 +346,7 @@ public class SimController {
                     if (driverWalkToYardQueue.peek() != null && driverWalkToYardQueue.peek().getActivityTimeMin() == 0) {
                         Driver driver = driverWalkToYardQueue.remove();
                         driver.setEngagedInActivity(false);
+                        driver.setEnterWaitForTruckQueueTime(simDateTime);
                         driverWaitForEmptyTruckQueue.add(driver);
                     } else {
                         keepScanning = false;
@@ -375,8 +390,25 @@ public class SimController {
 
                 //push all trucks into bay if there is an available spot. Randomize bay duration if truck is pushed in
 
+                //check number of trucks in bay
+                int totalTrucksInBay = 0;
+                for (BayPlaceholderEntity entity : bayBin) {
+                    if (entity.getTruck() != null) {
+                        totalTrucksInBay++;
+                    }
+                }
+
+                int randomBayTime = RandomSampleService.getRandomBayUnloadTime();
+                boolean isWash;
+
+                if (randomBayTime > 55) {
+                    isWash = true;
+                } else {
+                    isWash = false;
+                }
+
                 //push truck to bay 5 if available
-                if (bay5Available) {
+                if (bay5Available && isWash) {
                     if (waitForOpenBayQueue.size() > 0) {
                         Truck truckMovingToBay = waitForOpenBayQueue.remove();
 
@@ -386,7 +418,23 @@ public class SimController {
                             queuePenalty = 3;
                         }
 
-                        truckMovingToBay.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime() + queuePenalty);
+                        truckMovingToBay.setQueueDurationMin(randomBayTime + queuePenalty);
+
+                        if (randomBayTime > 55) {
+                            truckMovingToBay.setWash(true);
+                        } else {
+                            truckMovingToBay.setWash(false);
+                        }
+
+
+                        if (totalTrucksInBay >= 3) {
+                            int currentDur = truckMovingToBay.getQueueDurationMin();
+                            //minus 3
+                            currentDur = currentDur - 3;
+                            truckMovingToBay.setQueueDurationMin(currentDur);
+                        }
+
+
                         bayBin.get(4).setTruck(truckMovingToBay);
 
                     }
@@ -398,6 +446,9 @@ public class SimController {
                     if (entity.getBayNumber() != 5) {
                         if (entity.getTruck() == null) {
                             if (waitForOpenBayQueue.peek() != null) {
+                                int bayNum = entity.getBayNumber();
+                                randomBayTime = RandomSampleService.getRandomBayUnloadTime();
+
                                 Truck truckToMove = waitForOpenBayQueue.remove();
 
                                 int queuePenalty = 0;
@@ -406,8 +457,23 @@ public class SimController {
                                     queuePenalty = 3;
                                 }
 
-                                truckToMove.setQueueDurationMin(RandomSampleService.getRandomBayUnloadTime() + queuePenalty);
+                                truckToMove.setQueueDurationMin(randomBayTime + queuePenalty);
+
+                                if (randomBayTime >= 50) {
+                                    truckToMove.setWash(true);
+                                } else {
+                                    truckToMove.setWash(false);
+                                }
+
+                                if (totalTrucksInBay >= 3) {
+                                    int currentDur = truckToMove.getQueueDurationMin();
+                                    //minus 3
+                                    currentDur = currentDur - 3;
+                                    truckToMove.setQueueDurationMin(currentDur);
+                                }
+
                                 entity.setTruck(truckToMove);
+
                             }
                         }
                     }
@@ -650,7 +716,7 @@ public class SimController {
                     int queuePenalty = 0;
                     if (truckLeavingScaleWaitQueue.isScaleWaitPenalty()) {
                         //baseline calibration queuePenalty=2
-                        queuePenalty = 2;
+                        queuePenalty = 0;
                     }
 
                     truckLeavingScaleWaitQueue.setQueueDurationMin(RandomSampleService.getRandomScaleProcessSample() + queuePenalty);
@@ -664,6 +730,11 @@ public class SimController {
                 int driverWaitQueueSize = driverWaitForEmptyTruckQueue.size();
                 int yardBinSize = yardBin.size();
 
+                //used to track max yard size
+                if (yardBinSize > runResultEntity.getMaxYardSize()) {
+                    runResultEntity.setMaxYardSize(yardBinSize);
+                }
+
                 if (yardBinSize > 0 && driverWaitQueueSize > 0) {
                     for (Truck truck : yardBin) {
                         if (truck.getDriver() == null) {
@@ -672,6 +743,17 @@ public class SimController {
                                 break;
                             } else {
                                 Driver driver = driverWaitForEmptyTruckQueue.remove();
+
+                                //add driver id to occurance of drivers that had to wait for an empty truck
+                                if (driver.getEnterWaitForTruckQueueTime() != simDateTime) {
+                                    runResultEntity.getListOfDriverId().add(driver.getId());
+                                }
+
+                                //time spent in queue waiting for truck. Zero if no wait
+                                long millisecondsInEMptyTruckWaitQueue = simDateTime.getTime() - driver.getEnterWaitForTruckQueueTime().getTime();
+                                double minInQueue = (millisecondsInEMptyTruckWaitQueue / 1000) / 60;
+                                runResultEntity.getListOfDriverWaitMin().add(minInQueue);
+
                                 driver.setEngagedInActivity(true);
                                 driver.setActivityTimeMin(RandomSampleService.getRandomPreTripTime());
 

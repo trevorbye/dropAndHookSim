@@ -1,7 +1,10 @@
 import java.util.Date;
+import java.util.Random;
 
 public class Driver {
+    private int id;
     private Date propertyEntranceTime;
+    private Date enterWaitForTruckQueueTime;
     private boolean isEngagedInActivity;
     private int activityTimeMin;
 
@@ -10,6 +13,24 @@ public class Driver {
 
     public Driver(boolean isEngagedInActivity) {
         this.isEngagedInActivity = isEngagedInActivity;
+
+        Random random = new Random();
+        int randomId = random.nextInt(1000000);
+
+        this.id = randomId;
+    }
+
+    //no setter to remain immutable
+    public int getId() {
+        return id;
+    }
+
+    public Date getEnterWaitForTruckQueueTime() {
+        return enterWaitForTruckQueueTime;
+    }
+
+    public void setEnterWaitForTruckQueueTime(Date enterWaitForTruckQueueTime) {
+        this.enterWaitForTruckQueueTime = enterWaitForTruckQueueTime;
     }
 
     public boolean isEngagedInActivity() {

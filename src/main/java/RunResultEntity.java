@@ -11,8 +11,7 @@ public class RunResultEntity {
     private long countOfHostlerUnavailableToMoveTruckIntoBayFromQueue;
     private long countOfHostlerUnavailableToMoveTruckAfterFinishedInBay;
 
-
-
+    private int maxYardSize;
 
     //iteratively add to these lists during the sim, then run calculations at end to set summary stat variables
     private List<Double> listOfDriverMinOnProperty = new ArrayList<>();
@@ -21,12 +20,30 @@ public class RunResultEntity {
 
     private List<Double> listOfBayInToBayOutMin = new ArrayList<>();
 
-    private List<Integer> listOfArrivalHour = new ArrayList<>();
+    private List<Integer> listOfDriverId = new ArrayList<>();
 
-    private List<Double> listOfBayToScaleMin = new ArrayList<>();
+    private List<Double> listOfDriverWaitMin = new ArrayList<>();
+
+    private int occurencesOf3OrMoreTrucksInBay;
+
+    public int getOccurencesOf3OrMoreTrucksInBay() {
+        return occurencesOf3OrMoreTrucksInBay;
+    }
+
+    public void setOccurencesOf3OrMoreTrucksInBay(int occurencesOf3OrMoreTrucksInBay) {
+        this.occurencesOf3OrMoreTrucksInBay = occurencesOf3OrMoreTrucksInBay;
+    }
 
     public long getCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue() {
         return countOfHostlerUnavailableToMoveTruckIntoBayFromQueue;
+    }
+
+    public int getMaxYardSize() {
+        return maxYardSize;
+    }
+
+    public void setMaxYardSize(int maxYardSize) {
+        this.maxYardSize = maxYardSize;
     }
 
     public void setCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue(long countOfHostlerUnavailableToMoveTruckIntoBayFromQueue) {
@@ -41,20 +58,20 @@ public class RunResultEntity {
         this.countOfHostlerUnavailableToMoveTruckAfterFinishedInBay = countOfHostlerUnavailableToMoveTruckAfterFinishedInBay;
     }
 
-    public List<Double> getListOfBayToScaleMin() {
-        return listOfBayToScaleMin;
+    public List<Double> getListOfDriverWaitMin() {
+        return listOfDriverWaitMin;
     }
 
-    public void setListOfBayToScaleMin(List<Double> listOfBayToScaleMin) {
-        this.listOfBayToScaleMin = listOfBayToScaleMin;
+    public void setListOfDriverWaitMin(List<Double> listOfDriverWaitMin) {
+        this.listOfDriverWaitMin = listOfDriverWaitMin;
     }
 
-    public List<Integer> getListOfArrivalHour() {
-        return listOfArrivalHour;
+    public List<Integer> getListOfDriverId() {
+        return listOfDriverId;
     }
 
-    public void setListOfArrivalHour(List<Integer> listOfArrivalHour) {
-        this.listOfArrivalHour = listOfArrivalHour;
+    public void setListOfDriverId(List<Integer> listOfDriverId) {
+        this.listOfDriverId = listOfDriverId;
     }
 
     public List<Double> getListOfBayInToBayOutMin() {

@@ -1,10 +1,36 @@
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class App {
     public static void main(String[] args) {
+
+/*
+        RandomSampleService service = new RandomSampleService();
+        service.init();
+        service.arrivalSampleLoadCountTest(140);
+
+*/
+
+
+        List<Double> runningOutput = new ArrayList<>();
+
+        //baseline runner
+        for (int simRuns = 1; simRuns <= 30; simRuns++) {
+
+            RunResultEntity entity = SimController.simSetup(0, 0, true, 0.5);
+            runningOutput.addAll(entity.getListOfDriverMinOnProperty());
+
+        }
+
+        double sum = 0;
+        for (double val : runningOutput) {
+            sum = sum + val;
+        }
+        double mean = sum / runningOutput.size();
+
+        System.out.print(runningOutput);
+
+        /*
 
         List<ParamCombinationUtility> runParamCombinations = new ArrayList<>();
         for (int paramTrucks = 1; paramTrucks <= 8; paramTrucks++) {
@@ -13,45 +39,44 @@ public class App {
             }
         }
 
-        List<ParamCombinationUtility> ouputList = new ArrayList<>();
+        List<ParamCombinationUtility> outputList = new ArrayList<>();
 
         for (ParamCombinationUtility utility : runParamCombinations) {
 
             ParamCombinationUtility paramOutputObject = new ParamCombinationUtility(utility.getParamTrucks(), utility.getParamHostlers());
 
-            List<Double> runningOutput = new ArrayList<>();
-            List<Long> countOfHostlerUnavailableToMoveTruckIntoBayFromQueue = new ArrayList<>();
-            List<Long> countOfHostlerUnavailableToMoveTruckAfterFinishedInBay = new ArrayList<>();
+            List<Double> listOfYearlyMinutes = new ArrayList<>();
 
-            for (int simRuns = 1; simRuns <= 100; simRuns++) {
-                RunResultEntity entity = SimController.simSetup(utility.getParamTrucks(), utility.getParamHostlers(), false, .75);
+            for (int simRuns = 1; simRuns <= 30; simRuns++) {
+                List<Double> runningOutput = new ArrayList<>();
+
+                RunResultEntity entity = SimController.simSetup(utility.getParamTrucks(), utility.getParamHostlers(), true, .75);
                 runningOutput.addAll(entity.getListOfDriverMinOnProperty());
-            /*
-            countOfHostlerUnavailableToMoveTruckIntoBayFromQueue.add(entity.getCountOfHostlerUnavailableToMoveTruckIntoBayFromQueue());
-            countOfHostlerUnavailableToMoveTruckAfterFinishedInBay.add(entity.getCountOfHostlerUnavailableToMoveTruckAfterFinishedInBay());
-            */
+
+                double runningSum = 0;
+                for (Double driverTime : runningOutput) {
+                    runningSum = runningSum + driverTime;
+                }
+
+                listOfYearlyMinutes.add(runningSum);
             }
 
             double sumOfTimes = 0;
-            for (Double time : runningOutput) {
+            for (Double time : listOfYearlyMinutes) {
                 sumOfTimes = sumOfTimes + time;
             }
 
-            double average = sumOfTimes / runningOutput.size();
-            paramOutputObject.setAverageTimeOnProperty(average);
+            double average = sumOfTimes / listOfYearlyMinutes.size();
 
-            ouputList.add(paramOutputObject);
+            paramOutputObject.setAverageTimeOnProperty(average);
+            outputList.add(paramOutputObject);
         }
 
         //print output
-        for (ParamCombinationUtility paramCombinationUtility : ouputList) {
+        for (ParamCombinationUtility paramCombinationUtility : outputList) {
             System.out.println(paramCombinationUtility.getParamTrucks() + "," + paramCombinationUtility.getParamHostlers() + "," + paramCombinationUtility.getAverageTimeOnProperty());
         }
-
-        /*
-        System.out.println(runningOutput);
-        System.out.println(countOfHostlerUnavailableToMoveTruckIntoBayFromQueue);
-        System.out.println(countOfHostlerUnavailableToMoveTruckAfterFinishedInBay);
         */
+
     }
 }
